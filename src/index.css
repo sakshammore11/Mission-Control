@@ -41,30 +41,30 @@ body {
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
-  padding: 1rem;
+  padding: 0.5rem 1rem;
   background: radial-gradient(circle at top, rgba(255,69,0,0.1), transparent 50%);
 }
 
 .header {
   text-align: center;
-  padding: 1rem 0;
+  padding: 0.5rem 0;
   animation: fadeInDown 0.8s ease;
   flex-shrink: 0;
 }
 
 .header h1 {
-  font-size: 2.2rem;
+  font-size: 1.8rem;
   font-weight: 800;
   letter-spacing: -1px;
   text-transform: uppercase;
   color: #fff;
   text-shadow: 0 0 20px var(--accent-glow);
-  margin-bottom: 0.3rem;
+  margin-bottom: 0.2rem;
 }
 
 .header p {
   color: #a0a0a0;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 2px;
 }
@@ -73,7 +73,7 @@ body {
 .main-layout {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
   flex: 1;
   overflow: hidden;
 }
@@ -83,6 +83,17 @@ body {
   flex-direction: column;
   gap: 1rem;
   flex-shrink: 0;
+  max-height: 35vh; /* Prevents it from taking the entire screen on mobile */
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.2);
+  border-radius: 4px;
 }
 
 .chat-section {
@@ -94,20 +105,23 @@ body {
 }
 
 @media (min-width: 800px) {
+  .app-container {
+    padding: 1rem;
+  }
+  .header h1 {
+    font-size: 2.2rem;
+  }
+  .header {
+    padding: 1rem 0;
+  }
   .main-layout {
     flex-direction: row;
+    gap: 1.5rem;
   }
   .sidebar {
     width: 320px;
-    overflow-y: auto;
+    max-height: none; /* No height limit on desktop */
     padding-right: 0.5rem;
-  }
-  .sidebar::-webkit-scrollbar {
-    width: 4px;
-  }
-  .sidebar::-webkit-scrollbar-thumb {
-    background: rgba(255,255,255,0.2);
-    border-radius: 4px;
   }
 }
 
@@ -116,16 +130,21 @@ body {
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   border-radius: 12px;
-  padding: 1.5rem;
+  padding: 1rem;
   backdrop-filter: blur(10px);
+}
+@media (min-width: 800px) {
+  .panel {
+    padding: 1.5rem;
+  }
 }
 
 .panel h2 {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 1.1rem;
-  margin-bottom: 1rem;
+  font-size: 1rem;
+  margin-bottom: 0.8rem;
   text-transform: uppercase;
   color: var(--accent);
   letter-spacing: 1px;
@@ -139,19 +158,25 @@ body {
   justify-content: center;
 }
 .timer-display {
-  font-size: 3.5rem;
+  font-size: 2.5rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  margin-bottom: 1rem;
+  margin-bottom: 0.8rem;
   text-shadow: 0 0 20px var(--accent-glow);
+}
+@media (min-width: 800px) {
+  .timer-display {
+    font-size: 3.5rem;
+    margin-bottom: 1rem;
+  }
 }
 
 .btn {
   width: 100%;
-  padding: 1rem;
+  padding: 0.8rem;
   border-radius: 8px;
   border: none;
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
   text-transform: uppercase;
@@ -161,14 +186,25 @@ body {
   justify-content: center;
   gap: 0.5rem;
 }
+@media (min-width: 800px) {
+  .btn {
+    padding: 1rem;
+    font-size: 1rem;
+  }
+}
 
 .btn-start {
   background: var(--accent);
   color: #fff;
 }
-.btn-start:hover {
+.btn-start:hover:not(:disabled) {
   box-shadow: 0 0 15px var(--accent-glow);
   transform: scale(1.02);
+}
+.btn-start:disabled {
+  background: #333;
+  color: #666;
+  cursor: not-allowed;
 }
 
 .btn-give-up {
@@ -207,6 +243,11 @@ body {
   padding: 0 0.8rem;
   border-radius: 6px;
   cursor: pointer;
+}
+.task-form button:disabled {
+  background: #333;
+  color: #666;
+  cursor: not-allowed;
 }
 
 .task-list {
@@ -260,13 +301,13 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  padding: 1rem 0;
+  padding: 0.5rem 0;
   scroll-behavior: smooth;
 }
 .chat-container::after {
   content: '';
   display: block;
-  height: 2rem;
+  height: 1rem;
   flex-shrink: 0;
 }
 
@@ -279,16 +320,26 @@ body {
 }
 
 .message {
-  padding: 1rem 1.2rem;
+  padding: 0.8rem 1rem;
   border-radius: 12px;
-  max-width: 85%;
+  max-width: 90%;
   line-height: 1.5;
   animation: slideUp 0.3s ease forwards;
   opacity: 0;
   transform: translateY(10px);
   position: relative;
-  overflow: visible;
+  overflow-wrap: break-word;
   word-wrap: break-word;
+  word-break: break-word;
+  font-size: 0.95rem;
+}
+
+@media (min-width: 800px) {
+  .message {
+    padding: 1rem 1.2rem;
+    max-width: 85%;
+    font-size: 1rem;
+  }
 }
 
 .message.user {
@@ -322,6 +373,8 @@ body {
 /* Markdown Formatting */
 .message.bot p {
   margin-bottom: 0.75em;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .message.bot p:last-child {
   margin-bottom: 0;
@@ -342,12 +395,17 @@ body {
 }
 
 .input-area {
-  padding: 1rem 0;
+  padding: 0.5rem 0;
   display: flex;
   gap: 0.5rem;
   animation: fadeInUp 0.8s ease;
   flex-shrink: 0;
   background: var(--bg);
+}
+@media (min-width: 800px) {
+  .input-area {
+    padding: 1rem 0;
+  }
 }
 
 .input-field {
@@ -355,13 +413,18 @@ body {
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   color: #fff;
-  padding: 1rem 1.2rem;
+  padding: 0.8rem 1rem;
   border-radius: 12px;
   font-size: 1rem;
   outline: none;
   transition: all 0.3s ease;
   backdrop-filter: blur(10px);
   min-width: 0;
+}
+@media (min-width: 800px) {
+  .input-field {
+    padding: 1rem 1.2rem;
+  }
 }
 
 .input-field:focus {
@@ -373,7 +436,7 @@ body {
   background: var(--glass-bg);
   color: #fff;
   border: 1px solid var(--glass-border);
-  padding: 0 1.5rem;
+  padding: 0 1rem;
   border-radius: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -384,6 +447,11 @@ body {
   gap: 0.5rem;
   text-transform: uppercase;
   letter-spacing: 1px;
+}
+@media (min-width: 800px) {
+  .send-btn {
+    padding: 0 1.5rem;
+  }
 }
 
 .send-btn:hover:not(:disabled) {
