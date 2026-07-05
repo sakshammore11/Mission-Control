@@ -1,20 +1,21 @@
 import { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Send } from 'lucide-react';
+import { Send, Mic } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useStore } from '../store/useStore';
 
-const API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY;
-
 export default function Chat() {
-  const { 
-    messages, addMessage, 
-    tasks, 
-    timerActive, timeLeft, setTimeLeft, setTimerActive
-  } = useStore();
+  const messages = useStore(state => state.messages);
+  const addMessage = useStore(state => state.addMessage);
+  const tasks = useStore(state => state.tasks);
+  const timerActive = useStore(state => state.timerActive);
+  const timeLeft = useStore(state => state.timeLeft);
+  const setTimeLeft = useStore(state => state.setTimeLeft);
+  const setTimerActive = useStore(state => state.setTimerActive);
   
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [listening, setListening] = useState(false);
   const chatRef = useRef(null);
 
   useEffect(() => {
@@ -22,6 +23,28 @@ export default function Chat() {
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
     }
   }, [messages, loading]);
+
+  const handleMicClick = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Your browser does not support voice input.");
+      return;
+    }
+    
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    
+    recognition.onstart = () => setListening(true);
+    recognition.onresult = (e) => {
+      const transcript = e.results[0][0].transcript;
+      setInput(input + transcript);
+    };
+    recognition.onerror = () => setListening(false);
+    recognition.onend = () => setListening(false);
+    
+    recognition.start();
+  };
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -34,55 +57,52 @@ export default function Chat() {
     try {
       const activeTasks = tasks.filter(t => !t.done).map(t => t.text).join(', ');
       
-      let systemPrompt = `You are a strict, no-nonsense disciplinarian coach. 
-Your goals:
-1. Answer ANY question the user asks you (be helpful, but keep the strict tone).
-2. Make the user disciplined, focused, and hardworking. Give tough love.
-3. When the user discusses tasks or work, you MUST assign them a strict deadline or time limit.
-4. To automatically set a timer for the user, include the exact text [TIMER: X] anywhere in your response, where X is the number of minutes (e.g., [TIMER: 30], [TIMER: 15], [TIMER: 120]).
-Always use markdown formatting like bold text for emphasis.`;
-      
-      if (activeTasks) {
-        systemPrompt += `\nThe user currently has these active tasks: ${activeTasks}. Remind them to finish them.`;
-      }
-      if (timerActive) {
-        systemPrompt += `\nThe user is currently in a Grind Session with ${Math.ceil(timeLeft/60)} minutes left. Tell them to stay focused on the timer!`;
-      }
+      const apiMessages = messages.map(m => ({
+        role: m.role === 'bot' ? 'assistant' : 'user',
+        content: m.content
+      }));
 
-      const apiMessages = [
-        { role: 'system', content: systemPrompt },
-        ...messages.map(m => ({
-          role: m.role === 'bot' ? 'assistant' : 'user',
-          content: m.content
-        })),
-        { role: 'user', content: userMsg }
-      ];
-
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${API_KEY}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'poolside/laguna-xs-2.1:free',
-          messages: apiMessages
+          messages: [...apiMessages, { role: 'user', content: userMsg }],
+          activeTasks,
+          timerActive,
+          timeLeft
         })
       });
 
       const data = await response.json();
       
-      if (data && data.choices && data.choices.length > 0) {
-        let botResponse = data.choices[0].message.content;
+      if (data.reply) {
+        let botResponse = data.reply;
         
-        // Parse for [TIMER: X]
+        // Parse for JSON block at the end (e.g. {"action": "set_timer", "minutes": 30})
+        const jsonMatch = botResponse.match(/\{"action":\s*"set_timer",\s*"minutes":\s*\d+\}/);
+        if (jsonMatch) {
+          try {
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (parsed.action === 'set_timer' && parsed.minutes) {
+              setTimeLeft(parsed.minutes * 60);
+              setTimerActive(true);
+              botResponse = botResponse.replace(jsonMatch[0], `\n\n*(Timer set for ${parsed.minutes} minutes)*`);
+            }
+          } catch (e) {
+            console.error('Failed to parse intent JSON');
+          }
+        }
+        
+        // Fallback to old regex if AI missed the JSON format
         const timerMatch = botResponse.match(/\[TIMER:\s*(\d+)\]/i);
         if (timerMatch && timerMatch[1]) {
           const minutes = parseInt(timerMatch[1], 10);
           if (!isNaN(minutes)) {
             setTimeLeft(minutes * 60);
             setTimerActive(true);
-            botResponse = botResponse.replace(/\[TIMER:\s*\d+\]/gi, `*(Timer set for ${minutes} minutes)*`);
+            botResponse = botResponse.replace(/\[TIMER:\s*\d+\]/gi, `\n\n*(Timer set for ${minutes} minutes)*`);
           }
         }
 
@@ -132,6 +152,13 @@ Always use markdown formatting like bold text for emphasis.`;
       </div>
 
       <div className="input-area">
+        <button 
+          className={`mic-btn ${listening ? 'listening' : ''}`}
+          onClick={handleMicClick}
+          title="Dictate message"
+        >
+          <Mic size={18} />
+        </button>
         <input 
           type="text" 
           className="input-field" 
