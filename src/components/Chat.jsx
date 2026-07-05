@@ -1,7 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Send, Mic } from 'lucide-react';
-import { motion } from 'framer-motion';
+import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { Send, Mic, ArrowDown } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../store/useStore';
 
 export default function Chat() {
@@ -16,11 +19,32 @@ export default function Chat() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
+  const [showScrollFAB, setShowScrollFAB] = useState(false);
   const chatRef = useRef(null);
+
+  const scrollToBottom = () => {
+    if (chatRef.current) {
+      chatRef.current.scrollTo({
+        top: chatRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  const handleScroll = () => {
+    if (!chatRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = chatRef.current;
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+    setShowScrollFAB(!isNearBottom);
+  };
 
   useEffect(() => {
     if (chatRef.current) {
-      chatRef.current.scrollTop = chatRef.current.scrollHeight;
+      const { scrollTop, scrollHeight, clientHeight } = chatRef.current;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 150;
+      if (isNearBottom || messages[messages.length - 1]?.role === 'user') {
+        scrollToBottom();
+      }
     }
   }, [messages, loading]);
 
@@ -80,7 +104,6 @@ export default function Chat() {
       if (data.reply) {
         let botResponse = data.reply;
         
-        // Parse for JSON block at the end (e.g. {"action": "set_timer", "minutes": 30})
         const jsonMatch = botResponse.match(/\{"action":\s*"set_timer",\s*"minutes":\s*\d+\}/);
         if (jsonMatch) {
           try {
@@ -95,7 +118,6 @@ export default function Chat() {
           }
         }
         
-        // Fallback to old regex if AI missed the JSON format
         const timerMatch = botResponse.match(/\[TIMER:\s*(\d+)\]/i);
         if (timerMatch && timerMatch[1]) {
           const minutes = parseInt(timerMatch[1], 10);
@@ -125,56 +147,104 @@ export default function Chat() {
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <div className="chat-container" ref={chatRef}>
+      <div className="chat-container" ref={chatRef} onScroll={handleScroll}>
         {messages.map((msg, idx) => (
-          <motion.div 
-            key={idx} 
-            className={`message ${msg.role}`}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            {msg.role === 'bot' ? (
-              <ReactMarkdown>{msg.content}</ReactMarkdown>
-            ) : (
-              msg.content
-            )}
-          </motion.div>
+          <div key={idx} className={`message-wrapper ${msg.role}`}>
+            <motion.div 
+              className={`message ${msg.role}`}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              {msg.role === 'bot' ? (
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    code({node, inline, className, children, ...props}) {
+                      const match = /language-(\w+)/.exec(className || '')
+                      return !inline && match ? (
+                        <SyntaxHighlighter
+                          children={String(children).replace(/\n$/, '')}
+                          style={vscDarkPlus}
+                          language={match[1]}
+                          PreTag="div"
+                          {...props}
+                        />
+                      ) : (
+                        <code className={className} {...props}>
+                          {children}
+                        </code>
+                      )
+                    }
+                  }}
+                >
+                  {msg.content}
+                </ReactMarkdown>
+              ) : (
+                msg.content
+              )}
+            </motion.div>
+          </div>
         ))}
         {loading && (
-          <div className="message bot">
-            <div className="loading-dots">
-              <div className="dot"></div>
-              <div className="dot"></div>
-              <div className="dot"></div>
-            </div>
+          <div className="message-wrapper bot">
+            <motion.div 
+              className="message bot"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <div className="skeleton">
+                <div className="skeleton-line"></div>
+                <div className="skeleton-line"></div>
+                <div className="skeleton-line"></div>
+              </div>
+            </motion.div>
           </div>
         )}
       </div>
 
+      <AnimatePresence>
+        {showScrollFAB && (
+          <motion.button 
+            className="fab-scroll"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            onClick={scrollToBottom}
+            aria-label="Scroll to bottom"
+          >
+            <ArrowDown size={20} />
+          </motion.button>
+        )}
+      </AnimatePresence>
+
       <div className="input-area">
-        <button 
-          className={`mic-btn ${listening ? 'listening' : ''}`}
-          onClick={handleMicClick}
-          title="Dictate message"
-        >
-          <Mic size={18} />
-        </button>
-        <input 
-          type="text" 
-          className="input-field" 
-          placeholder="Ask me anything..." 
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-          disabled={loading}
-          autoFocus
-        />
+        <div className="input-field-wrapper">
+          <button 
+            className={`mic-btn ${listening ? 'listening' : ''}`}
+            onClick={handleMicClick}
+            aria-label="Dictate message"
+            title="Dictate message"
+          >
+            <Mic size={20} />
+          </button>
+          <input 
+            type="text" 
+            className="input-field" 
+            placeholder="Ask me anything..." 
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            disabled={loading}
+            autoFocus
+          />
+        </div>
         <button 
           className="send-btn" 
           onClick={handleSend}
           disabled={loading || !input.trim()}
+          aria-label="Send message"
         >
-          <Send size={18} /> Send
+          <Send size={18} />
         </button>
       </div>
     </motion.div>

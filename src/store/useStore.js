@@ -4,7 +4,6 @@ import { persist } from 'zustand/middleware';
 export const useStore = create(
   persist(
     (set, get) => ({
-      // Chat State
       messages: [
         { role: 'bot', content: 'NO EXCUSES. What do you need to get done today? Tell me your tasks and I will give you a deadline.' }
       ],
@@ -13,7 +12,6 @@ export const useStore = create(
         { role: 'bot', content: 'History wiped. A fresh start. What are we destroying today?' }
       ]}),
 
-      // Tasks State
       tasks: [],
       addTask: (text) => set((state) => ({
         tasks: [...state.tasks, { id: Date.now().toString(), text, done: false }]
@@ -27,6 +25,7 @@ export const useStore = create(
         const task = state.tasks.find(t => t.id === id);
         if (task && !task.done) {
           get().incrementTasksDone();
+          if ('vibrate' in navigator) navigator.vibrate(50); // Haptic feedback on complete
         }
         return { tasks: newTasks };
       }),
@@ -37,14 +36,18 @@ export const useStore = create(
         tasks: state.tasks.filter(t => !t.done)
       })),
 
-      // Timer State
       timeLeft: 0,
       timerActive: false,
       setTimeLeft: (time) => set({ timeLeft: time }),
       setTimerActive: (isActive) => set({ timerActive: isActive }),
       decrementTimer: () => set((state) => ({ timeLeft: Math.max(0, state.timeLeft - 1) })),
 
-      // Analytics State
+      punishmentTriggered: false,
+      triggerPunishment: () => {
+        set({ punishmentTriggered: true });
+        setTimeout(() => set({ punishmentTriggered: false }), 2000);
+      },
+
       stats: {
         tasksDone: 0,
         grindSessions: 0,
@@ -68,11 +71,11 @@ export const useStore = create(
             if (diffDays === 1) {
               newStreak += 1;
             } else if (diffDays > 1) {
-              newStreak = 0; // Streak broken
-              newScore = Math.max(0, newScore - (diffDays * 10)); // Decay logic
+              newStreak = 0;
+              newScore = Math.max(0, newScore - (diffDays * 10));
             }
           } else {
-            newStreak = 1; // First day
+            newStreak = 1;
           }
           
           set((state) => ({
@@ -105,12 +108,15 @@ export const useStore = create(
           }
         }));
       },
-      punishScore: () => set((state) => ({
-        stats: {
-          ...state.stats,
-          disciplineScore: Math.max(0, state.stats.disciplineScore - 25)
-        }
-      }))
+      punishScore: () => {
+        get().triggerPunishment();
+        set((state) => ({
+          stats: {
+            ...state.stats,
+            disciplineScore: Math.max(0, state.stats.disciplineScore - 25)
+          }
+        }));
+      }
     }),
     {
       name: 'mission-control-storage',
